@@ -1,0 +1,27 @@
+{
+    "Ariel": {
+        "currBonus": 2,
+        "currChance": 3,
+        "lastUpdate": "2025-04-30 15:07"
+    },
+    "Michael": {
+        "currBonus": 1,
+        "currChance": 0,
+        "lastUpdate": "2025-04-28 14:32"
+    },
+    "Vee": {
+        "currBonus": 0,
+        "currChance": 2,
+        "lastUpdate": "2025-04-30 14:26"
+    },
+    "Yuyuan": {
+        "currBonus": 0,
+        "currChance": 1,
+        "lastUpdate": "2025-04-30 15:10"
+    },
+    "Bianca": {
+        "currBonus": 0,
+        "currChance": 1,
+        "lastUpdate": "2025-04-30 15:11"
+    }
+}
