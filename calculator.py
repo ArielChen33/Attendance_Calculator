@@ -1,108 +1,254 @@
+# Updated Full Code with Monthly Attendance Tracking
+
+import os
+import sys
 import json
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, simpledialog, filedialog
 from datetime import datetime
+import shutil
+from collections import defaultdict
+import calendar
+import csv
+import pandas as pd
 
 # === Load and Save Functions ===
-def load_staff(): 
-    with open("staff.json", "r") as file: 
-        return json.load(file)
+DEFAULT_STAFF = {}
 
-def save_staff(): 
-    with open("staff.json", "w") as file: 
-        json.dump(staffList, file, indent=4)
 
+def get_data_path():
+    appdata = os.getenv('APPDATA') or os.getcwd()
+    app_folder = os.path.join(appdata, "StaffApp")
+    os.makedirs(app_folder, exist_ok=True)
+    return os.path.join(app_folder, "staff.json")
+
+
+def get_default_json_path():
+    if getattr(sys, 'frozen', False):
+        bundle_dir = sys._MEIPASS
+    else:
+        bundle_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(bundle_dir, "staff.json")
+
+
+def load_staff():
+    target_path = get_data_path()
+    if not os.path.exists(target_path):
+        try:
+            shutil.copy(get_default_json_path(), target_path)
+        except FileNotFoundError:
+            with open(target_path, "w") as f:
+                json.dump(DEFAULT_STAFF, f, indent=4)
+    with open(target_path, "r") as f:
+        return json.load(f)
+
+
+def save_staff():
+    target_path = get_data_path()
+    with open(target_path, "w") as f:
+        json.dump(staffList, f, indent=4)
+
+
+# === Helper Functions ===
+def get_month_key(date):
+    return date[:7]  # 'YYYY-MM'
+from collections import defaultdict
+from datetime import datetime
+
+def is_valid_date(date_str):
+    try:
+        datetime.strptime(date_str, "%Y-%m-%d")
+        return True
+    except ValueError:
+        return False
+
+def calc_monthly_stats(attendance):
+    stats = defaultdict(lambda: {
+        "workdays": 0,
+        "absences": 0,
+        "tardiness": 0,
+        "attended_hours": 0,
+    })
+    for date, hours in attendance.items():
+        if not is_valid_date(date):
+            continue  # Skip non-date keys like "2025-05"
+
+        month = date[:7]  # or use get_month_key(date)
+        stats[month]["workdays"] += 1
+
+        print("attendance", attendance)
+        print("month: ", month)
+        print("hours: ", hours)
+
+        stats[month]["attended_hours"] += hours
+        if hours >= 8:
+            continue
+        elif hours == 0:
+            stats[month]["absences"] += 1
+        else:
+            stats[month]["tardiness"] += 1
+    return stats
+
+
+
+# === Core Logic ===
 staffList = load_staff()
-bonus = [20, 40, 50]
 current_name = None
 
+
 # === GUI Functional Logic ===
-def find_staff(): 
+def find_staff():
     global current_name
-    name = entry.get().strip()
-    if name in staffList: 
-        current_name = name
-        show_staff(name)
+    name_input = entry.get().strip().lower()
+    if not name_input:
+        messagebox.showerror("Error", "Please enter a name.")
+        return
+
+    matches = [name for name in staffList if name.lower().startswith(name_input)]
+
+    if not matches:
+        messagebox.showerror("Not Found", "No matching staff found.")
+        clear_table()
+        update_btn("disabled")
+    elif len(matches) == 1:
+        current_name = matches[0]
+        show_staff(current_name)
         update_btn("normal")
-    else: 
-        messagebox.showerror("Error", "Staff not found")
+    else:
+        clear_table()
+        for name in sorted(matches):
+            show_staff(name, single=False)
         update_btn("disabled")
 
-def record_attended(): 
+
+def record_attendance():
+    if not current_name:
+        return
+
+    try:
+        hours = simpledialog.askfloat("Attendance", "Enter hours attended today:")
+        if hours is None or hours < 0 or hours > 24:
+            raise ValueError
+    except:
+        messagebox.showerror("Invalid", "Please enter a valid number between 0 and 24.")
+        return
+
     staff = staffList[current_name]
-    bonusIdx = staff["currBonus"]
-    chance = staff["currChance"]
-    if bonusIdx < len(bonus) - 1: 
-        bonusIdx += 1
-    else: 
-        bonusIdx = 0
-        chance += 1
-    staff["currBonus"] = bonusIdx
-    staff["currChance"] = chance
+    date = datetime.now().strftime("%Y-%m-%d")
+    staff.setdefault("attendance", {})[date] = hours
     staff["lastUpdate"] = datetime.now().strftime("%Y-%m-%d %H:%M")
     save_staff()
     show_staff(current_name)
-    messagebox.showinfo("Success", f"{current_name}'s bonus increased!")
+    messagebox.showinfo("Recorded", f"{current_name}'s attendance recorded: {hours} hours")
 
-def record_absent():
-    staff = staffList[current_name]
-    bonusIdx = staff["currBonus"]
-    chance = staff["currChance"]
-    if chance > 0: 
-        chance -= 1
-        msg = f"{current_name} used a chance. Remaining: {chance}"
-    else: 
-        bonusIdx = 0
-        msg = f"{current_name}'s bonus reset to 20"
-    staff["currBonus"] = bonusIdx
-    staff["currChance"] = chance
-    staff["lastUpdate"] = datetime.now().strftime("%Y-%m-%d %H:%M")
-    save_staff()
-    show_staff(current_name)
-    messagebox.showinfo("Updated", msg)
 
-def delete_staff(name): 
-    if name in staffList: 
-        confirm = messagebox.askyesno("Confirm", f"Are you sure you want to delete {name}?")
-        if confirm: 
+def delete_staff(name):
+    if name in staffList:
+        confirm = messagebox.askyesno("Confirm", f"Are you sure to delete {name}?")
+        if confirm:
             del staffList[name]
             save_staff()
             clear_table()
             update_btn("disabled")
-            messagebox.showinfo("Deleted", f"{name} removed.")
 
-def edit_staff():
-    if not current_name:
+
+def list_all_staff():
+    clear_table()
+    for name in sorted(staffList):
+        show_staff(name, single=False)
+    update_btn("disabled")
+
+
+def show_staff(name, single=True):
+    if single:
+        clear_table()
+    staff = staffList[name]
+    stats = calc_monthly_stats(staff.get("attendance", {}))
+    this_month = datetime.now().strftime("%Y-%m")
+    month_stat = stats.get(this_month, {})
+
+    workdays = month_stat.get("workdays", 0)
+    absences = month_stat.get("absences", 0)
+    tardiness = month_stat.get("tardiness", 0)
+    hours = month_stat.get("attended_hours", 0)
+    attendance_pct = round((hours / (workdays * 8) * 100) if workdays else 0, 2)
+
+    tree.insert("", "end", values=(
+        name,
+        workdays,
+        absences,
+        tardiness,
+        f"{attendance_pct}%",
+        staff.get("lastUpdate", "N/A")
+    ))
+    global current_name
+    current_name = name
+
+
+def clear_table():
+    for item in tree.get_children():
+        tree.delete(item)
+
+
+def update_btn(state):
+    recordBtn.config(state=state)
+    deleteBtn.config(state=state)
+
+
+def export_to_excel():
+    filename = f"staff_attendance_{datetime.now().strftime('%Y%m%d')}.csv"
+    with open(filename, mode="w", newline="") as file:
+        writer = csv.writer(file)
+        writer.writerow(["Name", "Total Workdays", "Total Absences", "Total Tardiness", "Attendance %", "Last Updated"])
+        for name in sorted(staffList):
+            staff = staffList[name]
+            stats = calc_monthly_stats(staff.get("attendance", {}))
+            month_stat = stats.get(datetime.now().strftime("%Y-%m"), {})
+            workdays = month_stat.get("workdays", 0)
+            absences = month_stat.get("absences", 0)
+            tardiness = month_stat.get("tardiness", 0)
+            hours = month_stat.get("attended_hours", 0)
+            attendance_pct = round((hours / (workdays * 8) * 100) if workdays else 0, 2)
+            writer.writerow([name, workdays, absences, tardiness, f"{attendance_pct}%", staff.get("lastUpdate", "N/A")])
+    messagebox.showinfo("Exported", f"Data saved to {filename}")
+
+def import_excel():
+    filepath = filedialog.askopenfilename(
+        title="Select File",
+        filetypes=[("CSV or Excel files", "*.csv *.xlsx *.xls")]
+    )
+    if not filepath:
         return
-    edit_win = tk.Toplevel(root)
-    edit_win.title(f"Edit {current_name}")
 
-    tk.Label(edit_win, text="Bonus Index (0-2):").pack()
-    bonus_entry = tk.Entry(edit_win)
-    bonus_entry.insert(0, staffList[current_name]["currBonus"])
-    bonus_entry.pack()
+    try:
+        if filepath.endswith(".csv"):
+            df = pd.read_csv(filepath)
+        else:
+            df = pd.read_excel(filepath, engine="openpyxl")  # Only used for real Excel files
 
-    tk.Label(edit_win, text="Chance:").pack()
-    chance_entry = tk.Entry(edit_win)
-    chance_entry.insert(0, staffList[current_name]["currChance"])
-    chance_entry.pack()
+        imported_count = 0
 
-    def save_edits():
-        try:
-            new_bonus = int(bonus_entry.get())
-            new_chance = int(chance_entry.get())
-            if new_bonus < 0 or new_bonus > 2 or new_chance < 0:
-                raise ValueError
-            staffList[current_name]["currBonus"] = new_bonus
-            staffList[current_name]["currChance"] = new_chance
-            staffList[current_name]["lastUpdate"] = datetime.now().strftime("%Y-%m-%d %H:%M")
-            save_staff()
-            show_staff(current_name)
-            edit_win.destroy()
-        except:
-            messagebox.showerror("Invalid input", "Please enter valid numbers.")
+        for _, row in df.iterrows():
+            name = row.get("Name")
+            date = str(row.get("Date"))[:10]
+            hours_str = row.get("Hours") or row.get("Attended Hours")  # depending on your column header
+            try:
+                hours = float(hours_str)
+            except (ValueError, TypeError):
+                hours = 0.0
 
-    tk.Button(edit_win, text="Save", command=save_edits).pack(pady=5)
+            if name and date:
+                staff = staffList.get(name)
+                if not staff:
+                    staff = {"name": name, "attendance": {}}
+                    staffList[name] = staff
+                staff.setdefault("attendance", {})[date] = hours
+                imported_count += 1
+
+        list_all_staff()
+        messagebox.showinfo("Import Successful", f"Imported {imported_count} attendance records.")
+    except Exception as e:
+        messagebox.showerror("Import Failed", str(e))
 
 def add_staff(name):
     name = name.strip()
@@ -113,8 +259,7 @@ def add_staff(name):
         messagebox.showerror("Error", "Staff already exists.")
         return
     staffList[name] = {
-        "currBonus": 0,
-        "currChance": 1, 
+        "attendance": {},
         "lastUpdate": datetime.now().strftime("%Y-%m-%d %H:%M")
     }
     save_staff()
@@ -123,31 +268,6 @@ def add_staff(name):
     toggle_add_frame()
     show_staff(name)
 
-def list_all_staff():
-    clear_table()
-    for name in staffList:
-        show_staff(name, single=False)
-    update_btn("disabled")
-
-def update_btn(state): 
-    yesBtn.config(state=state)
-    noBtn.config(state=state)
-    delBtn.config(state=state)
-    editBtn.config(state=state)
-
-def clear_table():
-    for item in tree.get_children():
-        tree.delete(item)
-
-def show_staff(name, single=True):
-    if single:
-        clear_table()
-    staff = staffList[name]
-    bonusVal = bonus[staff["currBonus"]]
-    last_update = staff.get("lastUpdate", "N/A")
-    tree.insert("", "end", values=(name, bonusVal, staff["currChance"], last_update))
-    global current_name
-    current_name = name
 
 def toggle_add_frame():
     global frame_add_visible
@@ -158,51 +278,60 @@ def toggle_add_frame():
         frame_add.pack(pady=5)
         frame_add_visible = True
 
+
+def on_row_select(event):
+    selected = tree.selection()
+    if not selected:
+        return
+    item = tree.item(selected[0])
+    name = item["values"][0]
+    if name in staffList:
+        global current_name
+        current_name = name
+        update_btn("normal")
+
+
 # === GUI Layout ===
 root = tk.Tk()
-root.title("Staff Attendance Record")
-root.geometry("650x500")
+root.title("Staff Monthly Attendance")
+root.geometry("800x500")
 
-# --- Search Frame ---
 frame_search = tk.Frame(root)
 frame_search.pack(pady=10)
 tk.Label(frame_search, text="Enter Staff Name:").pack(side=tk.LEFT)
 entry = tk.Entry(frame_search)
 entry.pack(side=tk.LEFT, padx=5)
+entry.bind("<Return>", lambda event: find_staff())
 tk.Button(frame_search, text="Find", command=find_staff).pack(side=tk.LEFT)
 
-# --- Control Buttons Frame ---
 frame_controls = tk.Frame(root)
 frame_controls.pack(pady=5)
-tk.Button(frame_controls, text="List All Staff", command=list_all_staff).pack(side=tk.LEFT, padx=5)
+tk.Button(frame_controls, text="List All", command=list_all_staff).pack(side=tk.LEFT, padx=5)
 tk.Button(frame_controls, text="Add Staff", command=toggle_add_frame).pack(side=tk.LEFT, padx=5)
+tk.Button(frame_controls, text="Export to Excel", command=export_to_excel).pack(side=tk.LEFT, padx=5)
+tk.Button(frame_controls, text="Import Excel", command=import_excel).pack(side=tk.LEFT, pady=5)
 
-# --- Add Staff Frame (Hidden Initially) ---
 frame_add = tk.Frame(root)
 frame_add_visible = False
 tk.Label(frame_add, text="New Staff Name:").pack(side=tk.LEFT)
 new_entry = tk.Entry(frame_add)
 new_entry.pack(side=tk.LEFT, padx=5)
-tk.Button(frame_add, text="Confirm Add", command=lambda: add_staff(new_entry.get())).pack(side=tk.LEFT)
+new_entry.bind("<Return>", lambda event: add_staff(new_entry.get()))
+tk.Button(frame_add, text="Confirm", command=lambda: add_staff(new_entry.get())).pack(side=tk.LEFT)
 
-# --- Staff Table View ---
-columns = ("Name", "Current Bonus", "Current Chance", "Last Updated")
+columns = ("Name", "Total Workdays", "Total Absences", "Total Tardiness", "Attendance %", "Last Updated")
 tree = ttk.Treeview(root, columns=columns, show="headings")
 for col in columns:
     tree.heading(col, text=col)
-    tree.column(col, anchor=tk.CENTER, width=150)
+    tree.column(col, anchor=tk.CENTER, width=120)
 tree.pack(pady=15)
+tree.bind("<<TreeviewSelect>>", on_row_select)
 
-# --- Action Buttons ---
 frame_actions = tk.Frame(root)
 frame_actions.pack(pady=10)
-yesBtn = tk.Button(frame_actions, text="Yes (Attended)", command=record_attended, state="disabled")
-noBtn = tk.Button(frame_actions, text="No (Absent)", command=record_absent, state="disabled")
-editBtn = tk.Button(frame_actions, text="Edit", command=edit_staff, state="disabled")
-delBtn = tk.Button(frame_actions, text="Delete", command=lambda: delete_staff(current_name), state="disabled")
-yesBtn.pack(side=tk.LEFT, padx=10)
-noBtn.pack(side=tk.LEFT, padx=10)
-editBtn.pack(side=tk.LEFT, padx=10)
-delBtn.pack(side=tk.LEFT, padx=10)
+recordBtn = tk.Button(frame_actions, text="Record Attendance", command=record_attendance, state="disabled")
+deleteBtn = tk.Button(frame_actions, text="Delete", command=lambda: delete_staff(current_name), state="disabled")
+recordBtn.pack(side=tk.LEFT, padx=10)
+deleteBtn.pack(side=tk.LEFT, padx=10)
 
 root.mainloop()

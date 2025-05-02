@@ -1,8 +1,8 @@
 {
     "Ariel": {
         "currBonus": 2,
-        "currChance": 3,
-        "lastUpdate": "2025-04-30 15:07"
+        "currChance": 4,
+        "lastUpdate": "2025-05-01 15:41"
     },
     "Michael": {
         "currBonus": 1,
@@ -14,14 +14,10 @@
         "currChance": 2,
         "lastUpdate": "2025-04-30 14:26"
     },
-    "Yuyuan": {
-        "currBonus": 0,
-        "currChance": 1,
-        "lastUpdate": "2025-04-30 15:10"
-    },
+    
     "Bianca": {
-        "currBonus": 0,
+        "currBonus": 1,
         "currChance": 1,
-        "lastUpdate": "2025-04-30 15:11"
+        "lastUpdate": "2025-04-30 15:30"
     }
 }
