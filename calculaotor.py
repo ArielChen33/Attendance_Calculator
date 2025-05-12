@@ -1,18 +1,18 @@
-# Updated Full Code with Monthly Attendance Tracking
-
+# Updated Full Code with Monthly Attendance Tracking (Hours-based)
 import os
 import sys
 import json
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog, filedialog
-from datetime import datetime
+from datetime import datetime, timedelta
 import shutil
 from collections import defaultdict
 import calendar
 import csv
 import pandas as pd
+from tkcalendar import Calendar
+import tkinter.simpledialog as sd
 
-# === Load and Save Functions ===
 DEFAULT_STAFF = {}
 
 
@@ -49,11 +49,66 @@ def save_staff():
         json.dump(staffList, f, indent=4)
 
 
-# === Helper Functions ===
-def get_month_key(date):
-    return date[:7]  # 'YYYY-MM'
-from collections import defaultdict
-from datetime import datetime
+class DatePicker(simpledialog.Dialog):
+    def body(self, master):
+        self.title("Select Date")
+        self.calendar = Calendar(master, selectmode='day', date_pattern='yyyy-mm-dd')
+        self.calendar.pack()
+        return self.calendar
+
+    def apply(self):
+        self.result = self.calendar.get_date()
+
+class AttendanceInputDialog(tk.Toplevel):
+    def __init__(self, parent, week_range):
+        super().__init__(parent)
+        self.title("Enter Weekly Attendance")
+        self.grab_set()
+        self.resizable(False, False)
+
+        self.result = None
+
+        # Week label at the top        
+        week_start = datetime.strptime(week_range, "%Y-%m-%d")
+        week_end = (week_start + timedelta(days=4)).strftime("%Y-%m-%d")
+        print(f"testttt: {week_end} type: {type(week_end)}")
+        week_range_label = f"Week: {week_range} to {week_end}"
+        tk.Label(self, text=week_range_label, font=("Arial", 10, "bold")).grid(row=0, column=0, columnspan=2, pady=(10, 5))
+        
+        tk.Label(self, text="Scheduled Hours:").grid(row=1, column=0, sticky="e", padx=5, pady=5)
+        tk.Label(self, text="Attended Hours:").grid(row=2, column=0, sticky="e", padx=5, pady=5)
+        tk.Label(self, text="Tardiness Hours:").grid(row=3, column=0, sticky="e", padx=5, pady=5)
+        tk.Label(self, text="Absent Hours:").grid(row=4, column=0, sticky="e", padx=5, pady=5)
+
+        self.scheduled_var = tk.DoubleVar()
+        self.attended_var = tk.DoubleVar()
+        self.tardiness_var = tk.DoubleVar()
+        self.absent_var = tk.DoubleVar()
+
+        tk.Entry(self, textvariable=self.scheduled_var).grid(row=1, column=1, padx=5, pady=5)
+        tk.Entry(self, textvariable=self.attended_var).grid(row=2, column=1, padx=5, pady=5)
+        tk.Entry(self, textvariable=self.tardiness_var).grid(row=3, column=1, padx=5, pady=5)
+        tk.Entry(self, textvariable=self.absent_var).grid(row=4, column=1, padx=5, pady=5)
+
+        submit_btn = tk.Button(self, text="Submit", command=self.submit)
+        submit_btn.grid(row=5, column=0, columnspan=2, pady=10)
+        submit_btn.bind("<Return>", lambda event: self.submit)
+        self.bind("<Return>", lambda event: self.submit())
+
+
+    def submit(self):
+        try:
+            self.result = {
+                "scheduled": self.scheduled_var.get(),
+                "attended": self.attended_var.get(),
+                "tardiness": self.tardiness_var.get(),
+                "absent": self.absent_var.get()
+            }
+            self.destroy()
+        except Exception as e:
+            messagebox.showerror("Error", f"Invalid input: {e}")
+
+
 
 def is_valid_date(date_str):
     try:
@@ -62,41 +117,39 @@ def is_valid_date(date_str):
     except ValueError:
         return False
 
+
+def get_week_key(date):
+    # Given a date, return 'YYYY-MM-DD to YYYY-MM-DD' for that week (Monday-Sunday)
+    obj = datetime.strptime(date, "%Y-%m-%d")
+    monday = obj - timedelta(days=obj.weekday())
+    return monday.strftime("%Y-%m-%d")
+
+
 def calc_monthly_stats(attendance):
     stats = defaultdict(lambda: {
-        "workdays": 0,
-        "absences": 0,
+        "scheduled": 0,
+        "attended": 0,
         "tardiness": 0,
-        "attended_hours": 0,
+        "absent": 0
     })
-    for date, hours in attendance.items():
-        if not is_valid_date(date):
-            continue  # Skip non-date keys like "2025-05"
-
-        month = date[:7]  # or use get_month_key(date)
-        stats[month]["workdays"] += 1
-
-        print("attendance", attendance)
-        print("month: ", month)
-        print("hours: ", hours)
-
-        stats[month]["attended_hours"] += hours
-        if hours >= 8:
+    for week, hours in attendance.items():
+        if not isinstance(hours, dict):
             continue
-        elif hours == 0:
-            stats[month]["absences"] += 1
-        else:
-            stats[month]["tardiness"] += 1
+        if not is_valid_date(week):
+            continue
+
+        month = week[:7]
+        stats[month]["scheduled"] += hours.get("scheduled", 0)
+        stats[month]["attended"] += hours.get("attended", 0)
+        stats[month]["tardiness"] += hours.get("tardiness", 0)
+        stats[month]["absent"] += hours.get("absent", 0)
     return stats
 
 
-
-# === Core Logic ===
 staffList = load_staff()
 current_name = None
 
 
-# === GUI Functional Logic ===
 def find_staff():
     global current_name
     name_input = entry.get().strip().lower()
@@ -121,35 +174,32 @@ def find_staff():
         update_btn("disabled")
 
 
+
 def record_attendance():
     if not current_name:
         return
 
-    try:
-        hours = simpledialog.askfloat("Attendance", "Enter hours attended today:")
-        if hours is None or hours < 0 or hours > 24:
-            raise ValueError
-    except:
-        messagebox.showerror("Invalid", "Please enter a valid number between 0 and 24.")
+    date_picker = DatePicker(root)
+    selected_date = date_picker.result
+    if not selected_date:
         return
 
+    week_key = get_week_key(selected_date)
+
+    dialog = AttendanceInputDialog(root, week_key)
+    root.wait_window(dialog)
+
+    if not dialog.result:
+        return
+
+    hours = dialog.result
     staff = staffList[current_name]
-    date = datetime.now().strftime("%Y-%m-%d")
-    staff.setdefault("attendance", {})[date] = hours
+    staff.setdefault("attendance", {})[week_key] = hours
     staff["lastUpdate"] = datetime.now().strftime("%Y-%m-%d %H:%M")
     save_staff()
     show_staff(current_name)
-    messagebox.showinfo("Recorded", f"{current_name}'s attendance recorded: {hours} hours")
+    messagebox.showinfo("Recorded", f"Attendance for {week_key} saved.")
 
-
-def delete_staff(name):
-    if name in staffList:
-        confirm = messagebox.askyesno("Confirm", f"Are you sure to delete {name}?")
-        if confirm:
-            del staffList[name]
-            save_staff()
-            clear_table()
-            update_btn("disabled")
 
 
 def list_all_staff():
@@ -167,17 +217,18 @@ def show_staff(name, single=True):
     this_month = datetime.now().strftime("%Y-%m")
     month_stat = stats.get(this_month, {})
 
-    workdays = month_stat.get("workdays", 0)
-    absences = month_stat.get("absences", 0)
+    scheduled = month_stat.get("scheduled", 0)
+    attended = month_stat.get("attended", 0)
     tardiness = month_stat.get("tardiness", 0)
-    hours = month_stat.get("attended_hours", 0)
-    attendance_pct = round((hours / (workdays * 8) * 100) if workdays else 0, 2)
+    absent = month_stat.get("absent", 0)
+    attendance_pct = round((attended / scheduled * 100) if scheduled else 0, 2)
 
     tree.insert("", "end", values=(
         name,
-        workdays,
-        absences,
+        scheduled,
+        attended,
         tardiness,
+        absent,
         f"{attendance_pct}%",
         staff.get("lastUpdate", "N/A")
     ))
@@ -194,23 +245,23 @@ def update_btn(state):
     recordBtn.config(state=state)
     deleteBtn.config(state=state)
 
-
 def export_to_excel():
     filename = f"staff_attendance_{datetime.now().strftime('%Y%m%d')}.csv"
     with open(filename, mode="w", newline="") as file:
         writer = csv.writer(file)
-        writer.writerow(["Name", "Total Workdays", "Total Absences", "Total Tardiness", "Attendance %", "Last Updated"])
+        writer.writerow(["Name", "Scheduled Hours", "Attended Hours", "Tardiness Hours", "Absent Hours", "Attendance %", "Last Updated", "Monthly Stats"])
         for name in sorted(staffList):
             staff = staffList[name]
             stats = calc_monthly_stats(staff.get("attendance", {}))
             month_stat = stats.get(datetime.now().strftime("%Y-%m"), {})
-            workdays = month_stat.get("workdays", 0)
-            absences = month_stat.get("absences", 0)
+            scheduled = month_stat.get("scheduled", 0)
+            attended = month_stat.get("attended", 0)
             tardiness = month_stat.get("tardiness", 0)
-            hours = month_stat.get("attended_hours", 0)
-            attendance_pct = round((hours / (workdays * 8) * 100) if workdays else 0, 2)
-            writer.writerow([name, workdays, absences, tardiness, f"{attendance_pct}%", staff.get("lastUpdate", "N/A")])
+            absent = month_stat.get("absent", 0)
+            attendance_pct = round((attended / scheduled * 100) if scheduled else 0, 2)
+            writer.writerow([name, scheduled, attended, tardiness, absent, f"{attendance_pct}%", staff.get("lastUpdate", "N/A"), month_stat])
     messagebox.showinfo("Exported", f"Data saved to {filename}")
+
 
 def import_excel():
     filepath = filedialog.askopenfilename(
@@ -224,31 +275,45 @@ def import_excel():
         if filepath.endswith(".csv"):
             df = pd.read_csv(filepath)
         else:
-            df = pd.read_excel(filepath, engine="openpyxl")  # Only used for real Excel files
+            df = pd.read_excel(filepath, engine="openpyxl")
 
         imported_count = 0
 
         for _, row in df.iterrows():
             name = row.get("Name")
-            date = str(row.get("Date"))[:10]
-            hours_str = row.get("Hours") or row.get("Attended Hours")  # depending on your column header
+            date = str(row.get("Week Start"))[:10]
+            scheduled = row.get("Scheduled Hours", 0)
+            attended = row.get("Attended Hours", 0)
+            tardiness = row.get("Tardiness Hours", 0)
+            absent = row.get("Absent Hours", 0)
+
             try:
-                hours = float(hours_str)
-            except (ValueError, TypeError):
-                hours = 0.0
+                scheduled = float(scheduled or 0)
+                attended = float(attended or 0)
+                tardiness = float(tardiness or 0)
+                absent = float(absent or 0)
+            except Exception:
+                continue
 
             if name and date:
                 staff = staffList.get(name)
                 if not staff:
                     staff = {"name": name, "attendance": {}}
                     staffList[name] = staff
-                staff.setdefault("attendance", {})[date] = hours
+                staff.setdefault("attendance", {})[date] = {
+                    "scheduled": scheduled,
+                    "attended": attended,
+                    "tardiness": tardiness,
+                    "absent": absent
+                }
                 imported_count += 1
 
         list_all_staff()
         messagebox.showinfo("Import Successful", f"Imported {imported_count} attendance records.")
     except Exception as e:
         messagebox.showerror("Import Failed", str(e))
+
+# --- Remaining unchanged functions like add_staff, delete_staff, and GUI layout ---
 
 def add_staff(name):
     name = name.strip()
@@ -268,7 +333,6 @@ def add_staff(name):
     toggle_add_frame()
     show_staff(name)
 
-
 def toggle_add_frame():
     global frame_add_visible
     if frame_add_visible:
@@ -278,6 +342,16 @@ def toggle_add_frame():
         frame_add.pack(pady=5)
         frame_add_visible = True
 
+def delete_staff(name):
+    if not name or name not in staffList:
+        return
+    confirm = messagebox.askyesno("Delete Staff", f"Are you sure you want to delete {name}?")
+    if confirm:
+        del staffList[name]
+        save_staff()
+        clear_table()
+        update_btn("disabled")
+        messagebox.showinfo("Deleted", f"{name} has been removed.")
 
 def on_row_select(event):
     selected = tree.selection()
@@ -308,6 +382,7 @@ frame_controls = tk.Frame(root)
 frame_controls.pack(pady=5)
 tk.Button(frame_controls, text="List All", command=list_all_staff).pack(side=tk.LEFT, padx=5)
 tk.Button(frame_controls, text="Add Staff", command=toggle_add_frame).pack(side=tk.LEFT, padx=5)
+
 tk.Button(frame_controls, text="Export to Excel", command=export_to_excel).pack(side=tk.LEFT, padx=5)
 tk.Button(frame_controls, text="Import Excel", command=import_excel).pack(side=tk.LEFT, pady=5)
 
@@ -316,10 +391,12 @@ frame_add_visible = False
 tk.Label(frame_add, text="New Staff Name:").pack(side=tk.LEFT)
 new_entry = tk.Entry(frame_add)
 new_entry.pack(side=tk.LEFT, padx=5)
+
+
 new_entry.bind("<Return>", lambda event: add_staff(new_entry.get()))
 tk.Button(frame_add, text="Confirm", command=lambda: add_staff(new_entry.get())).pack(side=tk.LEFT)
 
-columns = ("Name", "Total Workdays", "Total Absences", "Total Tardiness", "Attendance %", "Last Updated")
+columns = ("Name", "Schedule Hrs", "Attended Hrs", "Total Tardiness", "Total Absence", "Attendance %", "Last Updated")
 tree = ttk.Treeview(root, columns=columns, show="headings")
 for col in columns:
     tree.heading(col, text=col)
