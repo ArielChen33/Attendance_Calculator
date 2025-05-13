@@ -40,6 +40,7 @@ def load_staff():
             with open(target_path, "w") as f:
                 json.dump(DEFAULT_STAFF, f, indent=4)
     with open(target_path, "r") as f:
+        print("Loading", f.name)
         return json.load(f)
 
 
@@ -108,7 +109,7 @@ class AttendanceInputDialog(tk.Toplevel):
         except Exception as e:
             messagebox.showerror("Error", f"Invalid input: {e}")
 
-
+# ============================================================
 
 def is_valid_date(date_str):
     try:
@@ -175,6 +176,105 @@ def find_staff():
 
 
 
+# def record_attendance():
+#     if not current_name:
+#         return
+
+#     date_picker = DatePicker(root)
+#     selected_date = date_picker.result
+#     if not selected_date:
+#         return
+
+#     week_key = get_week_key(selected_date)
+
+#     dialog = AttendanceInputDialog(root, week_key)
+#     root.wait_window(dialog)
+
+#     if not dialog.result:
+#         return
+
+#     hours = dialog.result
+#     staff = staffList[current_name]
+#     staff.setdefault("attendance", {})[week_key] = hours
+#     staff["lastUpdate"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+#     save_staff()
+#     show_staff(current_name)
+#     messagebox.showinfo("Recorded", f"Attendance for {week_key} saved.")
+# =========================================
+# def record_attendance():
+#     if not current_name:
+#         return
+
+#     date_picker = DatePicker(root)
+#     selected_date = date_picker.result
+#     if not selected_date:
+#         return
+
+    
+#     # Extract the week key (e.g., "2025-05-12")
+#     week_key = get_week_key(selected_date)
+#     print(f"type: {type(selected_date)}")
+#     # Extract the month from the week_key
+#     month = selected_date[:7]
+#     print(f"month: {month}")
+
+#     # Get the current staff data
+#     staff = staffList.get(current_name)
+#     if not staff:
+#         return
+
+#     # Check if the attendance data for the week already exists
+#     # Add the month to the staff data
+#     if "month" not in staff["attendance"]["month"]:
+#         staff["attendance"]["month"] = {month}
+
+#     existing_period = staff.get("attendance", {}).get(month)
+#     # existing_period = staff.get("attendance", {}).get(week_key)
+
+#     dialog = AttendanceInputDialog(root, week_key)
+#     root.wait_window(dialog)
+#     if not dialog.result:
+#         return
+#     hours = dialog.result
+
+    
+
+#     # If the period exists, update it. Otherwise, create a new entry.
+#     if existing_period:
+#         existing_period.update({
+#             "scheduled hours": hours["scheduled"],
+#             "attendance hours": hours["attended"],
+#             "tardiness hours": hours["tardiness"],
+#             "absent hours": hours["absent"]
+#         })
+#     else:
+#         # If no existing period for the month, create a new one
+#         if "attendance" not in staff:
+#             staff["attendance"] = {}
+
+#         if month not in staff["attendance"]:
+#             staff["attendance"][month] = {"period": {}}
+
+#         staff["attendance"][month]["period"][week_key] = {
+#             "scheduled hours": hours["scheduled"],
+#             "attendance hours": hours["attended"],
+#             "tardiness hours": hours["tardiness"],
+#             "absent hours": hours["absent"]
+#         }
+    
+    
+
+#     # Update last update timestamp
+#     staff["lastUpdate"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+#     # Save the updated staff data
+#     save_staff()
+
+#     # Display updated staff info
+#     show_staff(current_name)
+
+#     messagebox.showinfo("Recorded", f"Attendance for {week_key} saved.")
+# --------------------------------------------------------------------------------------
 def record_attendance():
     if not current_name:
         return
@@ -184,21 +284,54 @@ def record_attendance():
     if not selected_date:
         return
 
+    # Extract the week key (e.g., "2025-05-12")
     week_key = get_week_key(selected_date)
+
+    # Get the current staff data
+    staff = staffList.get(current_name)
+    if not staff:
+        return
+
+    # Check if the attendance data for the week already exists
+    existing_week_data = staff.get("attendance", {}).get(week_key)
 
     dialog = AttendanceInputDialog(root, week_key)
     root.wait_window(dialog)
-
     if not dialog.result:
         return
-
     hours = dialog.result
-    staff = staffList[current_name]
-    staff.setdefault("attendance", {})[week_key] = hours
+
+    # Initialize 'attendance' dictionary if it doesn't exist
+    if "attendance" not in staff:
+        staff["attendance"] = {}
+
+    # If the week's data exists, update it. Otherwise, create a new entry.
+    if existing_week_data:
+        existing_week_data.update({
+            "scheduled": hours["scheduled"],
+            "attended": hours["attended"],
+            "tardiness": hours["tardiness"],
+            "absent": hours["absent"]
+        })
+    else:
+        # If no existing week data, create a new entry
+        staff["attendance"][week_key] = {
+            "scheduled": hours["scheduled"],
+            "attended": hours["attended"],
+            "tardiness": hours["tardiness"],
+            "absent": hours["absent"]
+        }
+
+    # Update last update timestamp
     staff["lastUpdate"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+    # Save the updated staff data
     save_staff()
+
+    # Display updated staff info
     show_staff(current_name)
-    messagebox.showinfo("Recorded", f"Attendance for {week_key} saved.")
+
+    messagebox.showinfo("Recorded", f"Attendance for the week starting {week_key} saved.")
 
 
 
@@ -206,6 +339,7 @@ def list_all_staff():
     clear_table()
     for name in sorted(staffList):
         show_staff(name, single=False)
+    print(staffList["new"])
     update_btn("disabled")
 
 
@@ -240,7 +374,6 @@ def clear_table():
     for item in tree.get_children():
         tree.delete(item)
 
-
 def update_btn(state):
     recordBtn.config(state=state)
     deleteBtn.config(state=state)
@@ -261,7 +394,6 @@ def export_to_excel():
             attendance_pct = round((attended / scheduled * 100) if scheduled else 0, 2)
             writer.writerow([name, scheduled, attended, tardiness, absent, f"{attendance_pct}%", staff.get("lastUpdate", "N/A"), month_stat])
     messagebox.showinfo("Exported", f"Data saved to {filename}")
-
 
 def import_excel():
     filepath = filedialog.askopenfilename(
@@ -364,6 +496,53 @@ def on_row_select(event):
         current_name = name
         update_btn("normal")
 
+# def update_table(): # Not working
+#     print("test: this is working")
+#     print(f"data: {staffList}")
+#     for row in tree.get_children():
+#         tree.delete(row)
+
+#     selected_month = month_var.get()
+#     if not selected_month:
+#         return  # Do nothing if no month is selected
+
+#     data = staffList.get(selected_month, {})
+#     for name, record in data.items():
+#         tree.insert("", "end", values=(
+#             name,
+#             record.get("total_scheduled", 0),
+#             record.get("total_attended", 0),
+#             record.get("total_tardiness", 0),
+#             record.get("total_absent", 0),
+#             f"{record.get('attendance_rate', 0):.2f}%"
+#         ))
+def update_table():
+    clear_table()
+    selected_month = month_var.get()
+    if not selected_month:
+        list_all_staff()  # If no month selected, show all staff
+        return
+
+    for name, staff_data in staffList.items():
+        monthly_stats = calc_monthly_stats(staff_data.get("attendance", {}))
+        month_stat = monthly_stats.get(selected_month, {})
+
+        scheduled = month_stat.get("scheduled", 0)
+        attended = month_stat.get("attended", 0)
+        tardiness = month_stat.get("tardiness", 0)
+        absent = month_stat.get("absent", 0)
+        attendance_pct = round((attended / scheduled * 100) if scheduled else 0, 2)
+
+        tree.insert("", "end", values=(
+            name,
+            scheduled,
+            attended,
+            tardiness,
+            absent,
+            f"{attendance_pct}%",
+            staff_data.get("lastUpdate", "N/A")
+        ))
+
 
 # === GUI Layout ===
 root = tk.Tk()
@@ -391,10 +570,17 @@ frame_add_visible = False
 tk.Label(frame_add, text="New Staff Name:").pack(side=tk.LEFT)
 new_entry = tk.Entry(frame_add)
 new_entry.pack(side=tk.LEFT, padx=5)
-
-
 new_entry.bind("<Return>", lambda event: add_staff(new_entry.get()))
 tk.Button(frame_add, text="Confirm", command=lambda: add_staff(new_entry.get())).pack(side=tk.LEFT)
+
+# Month selector
+month_var = tk.StringVar()
+month_choices = [f"{y}-{m:02d}" for y in range(2023, 2026) for m in range(1, 13)]
+month_var.set(datetime.now().strftime("%Y-%m"))
+month_dropdown = ttk.Combobox(frame_controls, textvariable=month_var, values=month_choices, state="readonly", width=10)
+month_dropdown.pack(side=tk.LEFT, padx=5)
+month_dropdown.bind("<<ComboboxSelected>>", lambda e: update_table())
+
 
 columns = ("Name", "Schedule Hrs", "Attended Hrs", "Total Tardiness", "Total Absence", "Attendance %", "Last Updated")
 tree = ttk.Treeview(root, columns=columns, show="headings")

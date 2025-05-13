@@ -1,0 +1,16 @@
+Name,Scheduled Hours,Attended Hours,Tardiness Hours,Absent Hours,Attendance %,Last Updated,Monthly Stats
+Ariel,40.0,30.0,10.0,0.0,75.0%,2025-05-12 14:18,"{'scheduled': 40.0, 'attended': 30.0, 'tardiness': 10.0, 'absent': 0.0}"
+Bianca,40.0,30.0,0.0,10.0,75.0%,2025-05-12 11:39,"{'scheduled': 40.0, 'attended': 30.0, 'tardiness': 0.0, 'absent': 10.0}"
+Jerry,40.0,40.0,0.0,0.0,100.0%,2025-05-08 15:19,"{'scheduled': 40.0, 'attended': 40.0, 'tardiness': 0.0, 'absent': 0.0}"
+Michael,40.0,20.0,10.0,10.0,50.0%,2025-05-09 14:14,"{'scheduled': 40.0, 'attended': 20.0, 'tardiness': 10.0, 'absent': 10.0}"
+Remon,0,0,0,0,0%,2025-05-01 15:46,{}
+Vee,40.0,50.0,0.0,0.0,125.0%,2025-05-08 14:09,"{'scheduled': 40.0, 'attended': 50.0, 'tardiness': 0.0, 'absent': 0.0}"
+Yuyuan,40.0,40.0,0.0,0.0,100.0%,2025-05-08 14:50,"{'scheduled': 40.0, 'attended': 40.0, 'tardiness': 0.0, 'absent': 0.0}"
+aaa,40.0,30.0,5.0,5.0,75.0%,2025-05-09 09:34,"{'scheduled': 40.0, 'attended': 30.0, 'tardiness': 5.0, 'absent': 5.0}"
+mike,40.0,40.0,0.0,0.0,100.0%,2025-05-08 14:57,"{'scheduled': 40.0, 'attended': 40.0, 'tardiness': 0.0, 'absent': 0.0}"
+rabbit,40.0,40.0,0.0,0.0,100.0%,2025-05-08 15:27,"{'scheduled': 40.0, 'attended': 40.0, 'tardiness': 0.0, 'absent': 0.0}"
+ruby,40.0,40.0,0.0,0.0,100.0%,2025-05-08 15:16,"{'scheduled': 40.0, 'attended': 40.0, 'tardiness': 0.0, 'absent': 0.0}"
+ss,0,0,0,0,0%,2025-05-08 15:20,{}
+testuser,0,0,0,0,0%,2025-05-05 15:42,{}
+testuser2,0,0,0,0,0%,2025-05-05 16:46,{}
+testuser3,0,0,0,0,0%,N/A,{}
