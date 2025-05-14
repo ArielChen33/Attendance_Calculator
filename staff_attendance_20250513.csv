@@ -1,0 +1,4 @@
+Name,Current Bonus,Current Chance,Scheduled Hours,Attended Hours,Tardiness Hours,Absent Hours,Attendance %,Last Updated,Monthly Stats
+new,30,0,0.0,0.0,0.0,0.0,0%,2025-05-13 14:08,"{'scheduled': 0.0, 'attended': 0.0, 'tardiness': 0.0, 'absent': 0.0}"
+other,20,2,0.0,0.0,0.0,0.0,0%,N/A,"{'scheduled': 0.0, 'attended': 0.0, 'tardiness': 0.0, 'absent': 0.0}"
+snoopy,20,0,0,0,0,0,0%,2025-05-13 14:44,{}
