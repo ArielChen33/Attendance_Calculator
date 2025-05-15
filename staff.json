@@ -1,1 +1,12 @@
-{}
+{
+    "newer": {
+        "attendance": {},
+        "bonus": {
+            "current_bonus": 0,
+            "current_chance": 0,
+            "bonus_history": {},
+            "bonus_updated": {}
+        },
+        "lastUpdate": "2025-05-15 15:10"
+    }
+}

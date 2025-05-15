@@ -17,6 +17,11 @@ import tkinter.simpledialog as sd
 DEFAULT_STAFF = {}
 
 
+# def get_data_path(): # Get the data from my own path
+#     path = r"C:\Users\Ariel\OneDrive - FDG\FDG-Shipping server\Ariel\Projects\Attendance Calculator\staff.json"
+#     os.makedirs(os.path.dirname(path), exist_ok=True)
+#     return path
+
 def get_data_path():
     appdata = os.getenv('APPDATA') or os.getcwd()
     app_folder = os.path.join(appdata, "StaffApp")
@@ -98,11 +103,20 @@ class AttendanceInputDialog(tk.Toplevel):
 
     def submit(self):
         try:
+            scheduled = float(self.scheduled_var.get())
+            attended = float(self.attended_var.get())
+            tardiness = float(self.tardiness_var.get())
+            absent = float(self.absent_var.get())
+            
+            if attended + tardiness + absent != scheduled: 
+                messagebox.showerror("Error", f"The sum of attended, tardiness, and absent must equal scheduled hours.")
+                return
+
             self.result = {
-                "scheduled": self.scheduled_var.get(),
-                "attended": self.attended_var.get(),
-                "tardiness": self.tardiness_var.get(),
-                "absent": self.absent_var.get()
+                "scheduled": scheduled,
+                "attended": attended,
+                "tardiness": tardiness,
+                "absent": absent
             }
             self.destroy()
         except Exception as e:
@@ -237,8 +251,9 @@ def record_attendance():
 def list_all_staff():
     clear_table()
     for name in sorted(staffList):
-        show_staff(name, single=False)
-    print(staffList["new"])
+        # show_staff(name, single=False)
+        update_table()
+    print(staffList["newer"])
     print("-------------------------------------")
     update_btn("disabled")
 
@@ -456,61 +471,6 @@ def calculate_bonus_logic(staff, perfect_attendance):
     staff["bonus"]["current_bonus"] = current_bonus
     staff["bonus"]["current_chance"] = current_chance
 
-
-# def calculate_bonus_popup():
-#     if not current_name or current_name not in staffList:
-#         return
-
-#     staff = staffList[current_name]
-#     # now_month = datetime.now().strftime("%Y-%m")
-#     selected_month = month_var.get()  # e.g., "2025-04"
-    
-
-#     # Get or initialize bonus info
-#     bonus_info = staff.get("bonus", {})
-#     bonus_updated = bonus_info.get("bonus_updated", {})
-#     current_bonus = bonus_info.get("current_bonus", 20)
-#     current_chance = bonus_info.get("current_chance", 0)
-#     bonus_history = bonus_info.setdefault("bonus_history", {})
-    
-#     # Block recalculating in the same month
-#     if selected_month in bonus_updated:
-#         messagebox.showinfo("Bonus Already Calculated", f"Bonus already calculated for {selected_month}.")
-#         return
-
-#     # Check if checkbox was checked for perfect attendance
-#     if perfect_var.get():
-#         if current_bonus == 50:
-#             current_bonus = 20
-#             current_chance += 1
-#         else:
-#             next_index = bonusList.index(current_bonus) + 1
-#             current_bonus = bonusList[next_index]
-#     else:
-#         # Assume imperfect attendance
-#         if current_chance > 0:
-#             current_chance -= 1
-#         else:
-#             current_bonus = 20
-
-#     # Update and save bonus info
-#     bonus_updated[selected_month] = True
-#     bonus_history[selected_month] = {
-#         "bonus": current_bonus, 
-#         "chance": current_chance
-#     }
-#     staff["bonus"] = {
-#         "current_bonus": current_bonus,
-#         "current_chance": current_chance,
-#         "bonus_history": bonus_history, 
-#         "bonus_updated": bonus_updated
-#     }
-
-#     save_staff()
-#     show_staff(current_name)
-
-#     # Show popup
-#     messagebox.showinfo("Bonus Updated", f"Current Bonus: {current_bonus}\nCurrent Chance: {current_chance}")
 def calculate_bonus_popup():
     if not current_name or current_name not in staffList:
         return
@@ -606,10 +566,13 @@ def update_table():
         list_all_staff()  # If no month selected, show all staff
         return
 
-    for name, staff_data in staffList.items():
+    for name, staff_data in sorted(staffList.items()):
         monthly_stats = calc_monthly_stats(staff_data.get("attendance", {}))
         month_stat = monthly_stats.get(selected_month, {})
-
+        bonus_info = staff_data.get("bonus", {})
+    
+        bonus = bonus_info["current_bonus"]
+        chance = bonus_info["current_chance"]
         scheduled = month_stat.get("scheduled", 0)
         attended = month_stat.get("attended", 0)
         tardiness = month_stat.get("tardiness", 0)
@@ -618,6 +581,8 @@ def update_table():
 
         tree.insert("", "end", values=(
             name,
+            bonus, 
+            chance, 
             scheduled,
             attended,
             tardiness,
@@ -673,15 +638,7 @@ month_dropdown.pack(side=tk.LEFT, padx=5)
 month_dropdown.bind("<<ComboboxSelected>>", lambda e: update_table())
 
 
-# columns = ("Name", "Bonus", "Chance", "Schedule Hrs", "Attended Hrs", "Total Tardiness", "Total Absence", "Attendance %", "Last Updated")
-# tree = ttk.Treeview(root, columns=columns, show="headings")
-# for col in columns:
-#     tree.heading(col, text=col)
-#     tree.column(col, anchor=tk.CENTER, width=120)
-# tree.pack(pady=15)
-# tree.bind("<<TreeviewSelect>>", on_row_select)
-# Frame to hold Treeview and scrollbars
-# =====================horizontal and vertical bar=====================
+
 frame_tree = tk.Frame(root)
 frame_tree.pack(pady=15, fill="both", expand=True)
 
@@ -698,7 +655,7 @@ for col in columns:
 h_scroll = tk.Scrollbar(frame_tree, orient="horizontal", command=tree.xview)
 h_scroll.pack(side="bottom", fill="x")
 
-# Optional vertical scrollbar (if needed)
+# Vertical scrollbar
 v_scroll = tk.Scrollbar(frame_tree, orient="vertical", command=tree.yview)
 v_scroll.pack(side="right", fill="y")
 tree.configure(yscrollcommand=v_scroll.set)
@@ -708,8 +665,8 @@ tree.pack(side="left", fill="both", expand=True)
 
 # Bind row selection event
 tree.bind("<<TreeviewSelect>>", on_row_select)
-# =====================horizontal and vertical bar=====================
 
+# Actions buttons at the buttom
 frame_actions = tk.Frame(root)
 frame_actions.pack(pady=10)
 recordBtn = tk.Button(frame_actions, text="Record Attendance", command=record_attendance, state="disabled")
