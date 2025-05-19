@@ -5,7 +5,7 @@ a = Analysis(
     ['calculator.py'],
     pathex=[],
     binaries=[],
-    datas=[('staff.json', '.')],
+    datas=[],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

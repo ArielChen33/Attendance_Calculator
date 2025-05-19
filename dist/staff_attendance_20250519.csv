@@ -1,0 +1,9 @@
+Name,Current Bonus,Current Chance,Scheduled Hours,Attended Hours,Tardiness Hours,Absent Hours,Attendance %,Last Updated,Monthly Stats
+aaa,0,0,0,0,0,0,0%,2025-05-19 14:25,{}
+hi,20,0,40.0,40.0,0.0,0.0,100.0%,2025-05-15 14:15,"{'scheduled': 40.0, 'attended': 40.0, 'tardiness': 0.0, 'absent': 0.0}"
+hiii,0,0,80.0,70.0,10.0,0.0,87.5%,2025-05-19 13:53,"{'scheduled': 80.0, 'attended': 70.0, 'tardiness': 10.0, 'absent': 0.0}"
+mike,0,0,40.0,20.0,0.0,20.0,50.0%,2025-05-19 09:17,"{'scheduled': 40.0, 'attended': 20.0, 'tardiness': 0.0, 'absent': 20.0}"
+new,30,0,0.0,0.0,0.0,0.0,0%,2025-05-19 09:50,"{'scheduled': 0.0, 'attended': 0.0, 'tardiness': 0.0, 'absent': 0.0}"
+newer,20,0,30.0,10.0,10.0,10.0,33.33%,2025-05-15 14:48,"{'scheduled': 30.0, 'attended': 10.0, 'tardiness': 10.0, 'absent': 10.0}"
+other,20,1,40.0,30.0,0.0,0.0,75.0%,2025-05-19 09:46,"{'scheduled': 40.0, 'attended': 30.0, 'tardiness': 0.0, 'absent': 0.0}"
+snoopy,30,0,80,60,10,10,75.0%,2025-05-19 09:30,"{'scheduled': 80, 'attended': 60, 'tardiness': 10, 'absent': 10}"
