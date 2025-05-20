@@ -17,6 +17,7 @@ import tkinter.simpledialog as sd
 
 DEFAULT_STAFF = {}
 
+# ================== DATA SOURCE ==========================================
 
 # def get_data_path(): # Get the data from my own path
 #     path = r"C:\Users\Ariel\OneDrive - FDG\FDG-Shipping server\Ariel\Projects\Attendance Calculator\staff.json"
@@ -123,7 +124,7 @@ class AttendanceInputDialog(tk.Toplevel):
         except Exception as e:
             messagebox.showerror("Error", f"Invalid input: {e}")
 
-# ============================================================
+# ================== DEALING WITH DATA ==========================================
 
 def is_valid_date(date_str):
     try:
@@ -160,10 +161,21 @@ def calc_monthly_stats(attendance):
         stats[month]["absent"] += hours.get("absent", 0)
     return stats
 
+# ================== HELPER FUNCTIONS ==========================================
+def clear_table():
+    for item in tree.get_children():
+        tree.delete(item)
+
+def update_btn(state):
+    recordBtn.config(state=state)
+    deleteBtn.config(state=state)
+    perfect_check.config(state=state)
+    bonusBtn.config(state=state)
+
+# ================== MAIN FEATURES ==========================================
 
 staffList = load_staff()
 current_name = None
-
 
 def find_staff():
     global current_name
@@ -195,8 +207,6 @@ def record_attendance():
 
     date_picker = DatePicker(root)
     selected_date = date_picker.result
-    # print(f"selected date: {selected_date}")
-    # print(f"selected month: {selected_date[:7]}")
     if not selected_date:
         return
 
@@ -245,19 +255,23 @@ def record_attendance():
     save_staff()
 
     # Display updated staff info
-    show_staff(current_name)
+    # Iinstead of
+    # show_staff(current_name)
+    show_updated_staff(current_name, selected_date) 
+    # showing data from the month we just recorded, instead of selected on right top 
 
     messagebox.showinfo("Recorded", f"Attendance for the week starting {week_key} saved.")
 
 
-
 def list_all_staff():
+    global current_name  # Add this line to access the global variable
     clear_table()
+    print("listtting")
+    if current_name:
+        current_name = ""
     for name in sorted(staffList):
         # show_staff(name, single=False)
         update_table()
-    # print(staffList["newer"])
-    # print("-------------------------------------")
     update_btn("disabled")
 
 
@@ -300,13 +314,13 @@ def show_staff(name, single=True):
     current_name = name
 
 
-def show_updated_staff(name, single=True):
+def show_updated_staff(name, selected_date ,single=True):
     if single:
         clear_table()
     staff = staffList[name]
     stats = calc_monthly_stats(staff.get("attendance", {}))
-    date_picker = DatePicker(root)
-    selected_date = date_picker.result
+    # date_picker = DatePicker(root)
+    # selected_date = date_picker.result
     # print(f"selected date: {selected_date}")
     # print(f"selected month: {selected_date[:7]}")
     this_month = selected_date[:7]
@@ -336,18 +350,6 @@ def show_updated_staff(name, single=True):
     current_name = name
 
 
-def clear_table():
-    for item in tree.get_children():
-        tree.delete(item)
-
-def update_btn(state):
-    recordBtn.config(state=state)
-    deleteBtn.config(state=state)
-    perfect_check.config(state=state)
-    bonusBtn.config(state=state)
-
-
-
 def export_to_excel():
     filename = f"staff_attendance_{datetime.now().strftime('%Y%m%d')}.csv"
     with open(filename, mode="w", newline="") as file:
@@ -371,7 +373,6 @@ def export_to_excel():
             writer.writerow([name, current_bonus, current_chance, scheduled, attended, tardiness, absent, f"{attendance_pct}%", staff.get("lastUpdate", "N/A"), month_stat])
 
     messagebox.showinfo("Exported", f"Data saved to {filename}")
-
 
 
 def import_excel():
@@ -438,7 +439,6 @@ def import_excel():
         messagebox.showerror("Import Failed", str(e))
 
 
-# --- Remaining unchanged functions like add_staff, delete_staff, and GUI layout ---
 
 def add_staff(name):
     name = name.strip()
@@ -609,10 +609,12 @@ def update_table():
     clear_table()
     selected_month = month_var.get()
     if not selected_month:
+        print("no month selected")
         list_all_staff()  # If no month selected, show all staff
         return
     
     if current_name: 
+        print("now is ", selected_month)
         print("Here is ", current_name)
         show_staff(current_name) 
         # now just showing the staff info for the current month

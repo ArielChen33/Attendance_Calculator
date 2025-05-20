@@ -1,4 +1,7 @@
-# 這個版本是可以正常運作 但輸出輸入還沒更新功能的
+# not yet improve for listing single staff when selecting specific month
+
+# ===========================
+# Updated Full Code with Monthly Attendance Tracking (Hours-based)
 import os
 import sys
 import json
@@ -15,6 +18,11 @@ import tkinter.simpledialog as sd
 
 DEFAULT_STAFF = {}
 
+
+# def get_data_path(): # Get the data from my own path
+#     path = r"C:\Users\Ariel\OneDrive - FDG\FDG-Shipping server\Ariel\Projects\Attendance Calculator\staff.json"
+#     os.makedirs(os.path.dirname(path), exist_ok=True)
+#     return path
 
 def get_data_path():
     appdata = os.getenv('APPDATA') or os.getcwd()
@@ -97,11 +105,20 @@ class AttendanceInputDialog(tk.Toplevel):
 
     def submit(self):
         try:
+            scheduled = float(self.scheduled_var.get())
+            attended = float(self.attended_var.get())
+            tardiness = float(self.tardiness_var.get())
+            absent = float(self.absent_var.get())
+            
+            if attended + tardiness + absent != scheduled: 
+                messagebox.showerror("Error", f"The sum of attended, tardiness, and absent must equal scheduled hours.")
+                return
+
             self.result = {
-                "scheduled": self.scheduled_var.get(),
-                "attended": self.attended_var.get(),
-                "tardiness": self.tardiness_var.get(),
-                "absent": self.absent_var.get()
+                "scheduled": scheduled,
+                "attended": attended,
+                "tardiness": tardiness,
+                "absent": absent
             }
             self.destroy()
         except Exception as e:
@@ -179,6 +196,8 @@ def record_attendance():
 
     date_picker = DatePicker(root)
     selected_date = date_picker.result
+    # print(f"selected date: {selected_date}")
+    # print(f"selected month: {selected_date[:7]}")
     if not selected_date:
         return
 
@@ -236,9 +255,10 @@ def record_attendance():
 def list_all_staff():
     clear_table()
     for name in sorted(staffList):
-        show_staff(name, single=False)
-    print(staffList["new"])
-    print("-------------------------------------")
+        # show_staff(name, single=False)
+        update_table()
+    # print(staffList["newer"])
+    # print("-------------------------------------")
     update_btn("disabled")
 
 
@@ -248,8 +268,12 @@ def show_staff(name, single=True):
     staff = staffList[name]
     stats = calc_monthly_stats(staff.get("attendance", {}))
     this_month = datetime.now().strftime("%Y-%m")
+    # this_month = datetime.now().strftime("%Y-%m")
     month_stat = stats.get(this_month, {})
-
+    bonus_info = staff.get("bonus", {})
+    
+    bonus = bonus_info["current_bonus"]
+    chance = bonus_info["current_chance"]
     scheduled = month_stat.get("scheduled", 0)
     attended = month_stat.get("attended", 0)
     tardiness = month_stat.get("tardiness", 0)
@@ -258,6 +282,44 @@ def show_staff(name, single=True):
 
     tree.insert("", "end", values=(
         name,
+        bonus, 
+        chance, 
+        scheduled,
+        attended,
+        tardiness,
+        absent,
+        f"{attendance_pct}%",
+        staff.get("lastUpdate", "N/A")
+    ))
+    global current_name
+    current_name = name
+
+
+def show_updated_staff(name, single=True):
+    if single:
+        clear_table()
+    staff = staffList[name]
+    stats = calc_monthly_stats(staff.get("attendance", {}))
+    date_picker = DatePicker(root)
+    selected_date = date_picker.result
+    # print(f"selected date: {selected_date}")
+    # print(f"selected month: {selected_date[:7]}")
+    this_month = selected_date[:7]
+    month_stat = stats.get(this_month, {})
+    bonus_info = staff.get("bonus", {})
+    
+    bonus = bonus_info["current_bonus"]
+    chance = bonus_info["current_chance"]
+    scheduled = month_stat.get("scheduled", 0)
+    attended = month_stat.get("attended", 0)
+    tardiness = month_stat.get("tardiness", 0)
+    absent = month_stat.get("absent", 0)
+    attendance_pct = round((attended / scheduled * 100) if scheduled else 0, 2)
+
+    tree.insert("", "end", values=(
+        name,
+        bonus, 
+        chance, 
         scheduled,
         attended,
         tardiness,
@@ -280,11 +342,13 @@ def update_btn(state):
     bonusBtn.config(state=state)
 
 
+
 def export_to_excel():
     filename = f"staff_attendance_{datetime.now().strftime('%Y%m%d')}.csv"
     with open(filename, mode="w", newline="") as file:
         writer = csv.writer(file)
-        writer.writerow(["Name", "Scheduled Hours", "Attended Hours", "Tardiness Hours", "Absent Hours", "Attendance %", "Last Updated", "Monthly Stats"])
+        writer.writerow(["Name", "Current Bonus", "Current Chance", "Scheduled Hours", "Attended Hours", "Tardiness Hours", "Absent Hours", "Attendance %", "Last Updated", "Monthly Stats"])
+        
         for name in sorted(staffList):
             staff = staffList[name]
             stats = calc_monthly_stats(staff.get("attendance", {}))
@@ -294,8 +358,16 @@ def export_to_excel():
             tardiness = month_stat.get("tardiness", 0)
             absent = month_stat.get("absent", 0)
             attendance_pct = round((attended / scheduled * 100) if scheduled else 0, 2)
-            writer.writerow([name, scheduled, attended, tardiness, absent, f"{attendance_pct}%", staff.get("lastUpdate", "N/A"), month_stat])
+            
+            bonus_info = staff.get("bonus", {})
+            current_bonus = bonus_info.get("current_bonus", 20)
+            current_chance = bonus_info.get("current_chance", 0)
+
+            writer.writerow([name, current_bonus, current_chance, scheduled, attended, tardiness, absent, f"{attendance_pct}%", staff.get("lastUpdate", "N/A"), month_stat])
+
     messagebox.showinfo("Exported", f"Data saved to {filename}")
+
+
 
 def import_excel():
     filepath = filedialog.askopenfilename(
@@ -315,37 +387,51 @@ def import_excel():
 
         for _, row in df.iterrows():
             name = row.get("Name")
-            date = str(row.get("Week Start"))[:10]
+            date = str(row.get("Week Start"))[:10] if "Week Start" in row else datetime.now().strftime("%Y-%m-%d")
             scheduled = row.get("Scheduled Hours", 0)
             attended = row.get("Attended Hours", 0)
             tardiness = row.get("Tardiness Hours", 0)
             absent = row.get("Absent Hours", 0)
+            bonus = row.get("Current Bonus", 20)
+            chance = row.get("Current Chance", 0)
+            print(f"bonus: {bonus}")
+            print(f"chance: {chance}")
 
             try:
                 scheduled = float(scheduled or 0)
                 attended = float(attended or 0)
                 tardiness = float(tardiness or 0)
                 absent = float(absent or 0)
+                bonus = int(bonus or 20)
+                chance = int(chance or 0)
             except Exception:
                 continue
 
             if name and date:
                 staff = staffList.get(name)
                 if not staff:
-                    staff = {"name": name, "attendance": {}}
+                    staff = {"name": name, "attendance": {}, "bonus": {}}
                     staffList[name] = staff
+
                 staff.setdefault("attendance", {})[date] = {
                     "scheduled": scheduled,
                     "attended": attended,
                     "tardiness": tardiness,
                     "absent": absent
                 }
+
+                # Update bonus info
+                bonus_info = staff.setdefault("bonus", {})
+                bonus_info["current_bonus"] = bonus
+                bonus_info["current_chance"] = chance
+
                 imported_count += 1
 
         list_all_staff()
         messagebox.showinfo("Import Successful", f"Imported {imported_count} attendance records.")
     except Exception as e:
         messagebox.showerror("Import Failed", str(e))
+
 
 # --- Remaining unchanged functions like add_staff, delete_staff, and GUI layout ---
 
@@ -405,9 +491,9 @@ def on_row_select(event):
         update_btn("normal")
 
 
-bonusList = [20, 30, 50]
+bonusList = [20, 40, 50]
 def calculate_bonus_logic(staff, perfect_attendance):
-    current_bonus = staff["bonus"].get("current_bonus", 20)
+    current_bonus = staff["bonus"].get("current_bonus", 0)
     current_chance = staff["bonus"].get("current_chance", 0)
 
     if perfect_attendance:
@@ -421,66 +507,11 @@ def calculate_bonus_logic(staff, perfect_attendance):
         if current_chance > 0:
             current_chance -= 1
         else:
-            current_bonus = 20
+            current_bonus = 0
 
     staff["bonus"]["current_bonus"] = current_bonus
     staff["bonus"]["current_chance"] = current_chance
 
-
-# def calculate_bonus_popup():
-#     if not current_name or current_name not in staffList:
-#         return
-
-#     staff = staffList[current_name]
-#     # now_month = datetime.now().strftime("%Y-%m")
-#     selected_month = month_var.get()  # e.g., "2025-04"
-    
-
-#     # Get or initialize bonus info
-#     bonus_info = staff.get("bonus", {})
-#     bonus_updated = bonus_info.get("bonus_updated", {})
-#     current_bonus = bonus_info.get("current_bonus", 20)
-#     current_chance = bonus_info.get("current_chance", 0)
-#     bonus_history = bonus_info.setdefault("bonus_history", {})
-    
-#     # Block recalculating in the same month
-#     if selected_month in bonus_updated:
-#         messagebox.showinfo("Bonus Already Calculated", f"Bonus already calculated for {selected_month}.")
-#         return
-
-#     # Check if checkbox was checked for perfect attendance
-#     if perfect_var.get():
-#         if current_bonus == 50:
-#             current_bonus = 20
-#             current_chance += 1
-#         else:
-#             next_index = bonusList.index(current_bonus) + 1
-#             current_bonus = bonusList[next_index]
-#     else:
-#         # Assume imperfect attendance
-#         if current_chance > 0:
-#             current_chance -= 1
-#         else:
-#             current_bonus = 20
-
-#     # Update and save bonus info
-#     bonus_updated[selected_month] = True
-#     bonus_history[selected_month] = {
-#         "bonus": current_bonus, 
-#         "chance": current_chance
-#     }
-#     staff["bonus"] = {
-#         "current_bonus": current_bonus,
-#         "current_chance": current_chance,
-#         "bonus_history": bonus_history, 
-#         "bonus_updated": bonus_updated
-#     }
-
-#     save_staff()
-#     show_staff(current_name)
-
-#     # Show popup
-#     messagebox.showinfo("Bonus Updated", f"Current Bonus: {current_bonus}\nCurrent Chance: {current_chance}")
 def calculate_bonus_popup():
     if not current_name or current_name not in staffList:
         return
@@ -493,7 +524,7 @@ def calculate_bonus_popup():
     # Get or initialize bonus info
     bonus_info = staff.get("bonus", {})
     bonus_updated = bonus_info.get("bonus_updated", {})
-    current_bonus = bonus_info.get("current_bonus", 20)
+    current_bonus = bonus_info.get("current_bonus", 0)
     current_chance = bonus_info.get("current_chance", 0)
     bonus_history = bonus_info.setdefault("bonus_history", {})
     overwrite_log = bonus_info.setdefault("overwrite_log", {})
@@ -545,7 +576,7 @@ def calculate_bonus_popup():
         if current_chance > 0:
             current_chance -= 1
         else:
-            current_bonus = 20
+            current_bonus = 0
 
     # Save bonus info
     bonus_updated[selected_month] = new_perfect # <-- store true/false
@@ -568,18 +599,23 @@ def calculate_bonus_popup():
     messagebox.showinfo("Bonus Updated", f"Current Bonus: {current_bonus}\nCurrent Chance: {current_chance}")
 
 
-
-def update_table():
+# Update the whole table after selecting specific month
+def update_table(): 
     clear_table()
     selected_month = month_var.get()
     if not selected_month:
         list_all_staff()  # If no month selected, show all staff
         return
+    
+    
 
-    for name, staff_data in staffList.items():
+    for name, staff_data in sorted(staffList.items()):
         monthly_stats = calc_monthly_stats(staff_data.get("attendance", {}))
         month_stat = monthly_stats.get(selected_month, {})
-
+        bonus_info = staff_data.get("bonus", {})
+    
+        bonus = bonus_info["current_bonus"]
+        chance = bonus_info["current_chance"]
         scheduled = month_stat.get("scheduled", 0)
         attended = month_stat.get("attended", 0)
         tardiness = month_stat.get("tardiness", 0)
@@ -588,6 +624,8 @@ def update_table():
 
         tree.insert("", "end", values=(
             name,
+            bonus, 
+            chance, 
             scheduled,
             attended,
             tardiness,
@@ -643,14 +681,35 @@ month_dropdown.pack(side=tk.LEFT, padx=5)
 month_dropdown.bind("<<ComboboxSelected>>", lambda e: update_table())
 
 
+
+frame_tree = tk.Frame(root)
+frame_tree.pack(pady=15, fill="both", expand=True)
+
+# Treeview
 columns = ("Name", "Bonus", "Chance", "Schedule Hrs", "Attended Hrs", "Total Tardiness", "Total Absence", "Attendance %", "Last Updated")
-tree = ttk.Treeview(root, columns=columns, show="headings")
+tree = ttk.Treeview(frame_tree, columns=columns, show="headings", xscrollcommand=lambda *args: h_scroll.set(*args))
+
+# Setup headings and column widths
 for col in columns:
     tree.heading(col, text=col)
     tree.column(col, anchor=tk.CENTER, width=120)
-tree.pack(pady=15)
+
+# Horizontal scrollbar
+h_scroll = tk.Scrollbar(frame_tree, orient="horizontal", command=tree.xview)
+h_scroll.pack(side="bottom", fill="x")
+
+# Vertical scrollbar
+v_scroll = tk.Scrollbar(frame_tree, orient="vertical", command=tree.yview)
+v_scroll.pack(side="right", fill="y")
+tree.configure(yscrollcommand=v_scroll.set)
+
+# Pack Treeview last so it fills remaining space
+tree.pack(side="left", fill="both", expand=True)
+
+# Bind row selection event
 tree.bind("<<TreeviewSelect>>", on_row_select)
 
+# Actions buttons at the buttom
 frame_actions = tk.Frame(root)
 frame_actions.pack(pady=10)
 recordBtn = tk.Button(frame_actions, text="Record Attendance", command=record_attendance, state="disabled")
